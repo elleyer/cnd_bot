@@ -12,7 +12,7 @@ namespace CndBot.Core
         public const string CONTACT_US_MSG = "Зворотній зв'язок";
         public const string SHOW_ON_MAP_MSG = "Показати на карті 📍";
         
-        private const string WELCOME_MSG = "Ласкаво просимо до офіційного телеграм-боту Народного Дому " +
+        private const string WELCOME_MSG = "Ласкаво просимо до офіційного телеграм-боту Народного дому " +
                                            "міста Червоноград. Що Вас цікавить?";
         
         public override async void ExecuteCommand(ITelegramBotClient botClient, Update update)
