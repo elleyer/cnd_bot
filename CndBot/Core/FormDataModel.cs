@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using CndBot.Core.Actions;
+using Telegram.Bot.Types;
 
 namespace CndBot.Core
 {
@@ -15,6 +16,8 @@ namespace CndBot.Core
         public FormType FormType { get; set; }
         
         public long UserId { get; set; }
+        
+        public string Contact { get; set; }
         
         public int Age { get; set; }
         
