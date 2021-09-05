@@ -13,6 +13,9 @@ namespace CndBot.Core.Actions
         public const string REG_DANCE_FORM = "Хореографія";
         public const string REG_ART_FORM = "Малювання";
         public const string REG_SIGN_FORM = "Вокал";
+        
+        public static Dictionary<RegisterFormAction, FormDataModel> StagesById
+            = new Dictionary<RegisterFormAction, FormDataModel>();
 
         public long UserId;
 
@@ -54,19 +57,31 @@ namespace CndBot.Core.Actions
                             replyMarkup: new ReplyKeyboardRemove());
                         break;
                     case RegisterFormStage.Name:
-                        SetUsername(ref dataModel, update.Message.Text);;
+                        SetName(ref dataModel, update.Message.Text);;
                         await _botClient.SendTextMessageAsync(chat, "Скільки Вам років?");
                         break;
                     case RegisterFormStage.Age:
                         SetAge(ref dataModel, int.Parse(update.Message.Text ?? string.Empty));
-                        await _botClient.SendTextMessageAsync(chat, "Будь ласка, опишіть себе. Чи займались ви" +
+                        await _botClient.SendTextMessageAsync(chat, "Будь ласка, опишіть себе. Чи займались ви " +
                                                                     "цим раніше?");
                         break;
                     case RegisterFormStage.Description:
-                        SetDescription(ref dataModel, update.Message.Text);;
-                        await _botClient.SendTextMessageAsync(chat, "Дякуємо, Вашу анкету прийнято та відправлено" +
-                                                                    " на обробку!");
-                        await SaveModel(dataModel);
+                        SetDescription(ref dataModel, update.Message.Text);
+                        var contactButton = KeyboardButton.WithRequestContact("Надіслати контакт 📲");
+                        var markupContact = new ReplyKeyboardMarkup(contactButton);
+                        markupContact.ResizeKeyboard = true;
+                        
+                        await _botClient.SendTextMessageAsync(chat, "Будь ласка, поділіться Вашим контактним " +
+                                                                    "номером, натиснувши відповідну кнопку.",
+                            replyMarkup: markupContact);
+
+                        break;
+                    case RegisterFormStage.GetContact:
+                        SetContact(ref dataModel, update.Message.Contact.PhoneNumber);
+                        await _botClient.SendTextMessageAsync(chat, "Дякуємо, Вашу анкету прийнято та відправлено"
+                                                                    + " на обробку!", 
+                            replyMarkup: new ReplyKeyboardRemove());
+                        await SaveModel(_botClient, dataModel);
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
@@ -104,9 +119,14 @@ namespace CndBot.Core.Actions
             dataModel.Age = age;
         }
 
-        public void SetUsername(ref FormDataModel dataModel, string username)
+        public void SetName(ref FormDataModel dataModel, string name)
         {
-            dataModel.Username = username;
+            dataModel.Name = name;
+        }
+
+        public void SetContact(ref FormDataModel dataModel, string contact)
+        {
+            dataModel.Contact = contact;
         }
         
         public void SetDescription(ref FormDataModel dataModel, string description)
@@ -114,10 +134,35 @@ namespace CndBot.Core.Actions
             dataModel.Description = description;
         }
 
-        public async Task SaveModel(FormDataModel dataModel)
+        public async Task SaveModel(ITelegramBotClient client, FormDataModel dataModel)
         {
             await Client.DataBaseProvider.FormDataModels.AddAsync(dataModel);
             await Client.DataBaseProvider.SaveChangesAsync();
+
+            await client.SendTextMessageAsync(Client.SIGNING_CHAT_ID,
+                "🎟 Отримано нову заявку! \n \n" +
+                $"🏛 Гурток: {FormTypeToString(dataModel.FormType)} \n \n" +
+                $"📝 Ім'я: {dataModel.Name}. \n \n" +
+                $"📆 Вік: {dataModel.Age}р. \n \n" +
+                $"☎ Номер телефону: {dataModel.Contact}. \n \n" +
+                $"Короткий опис, чи займались таким раніше: {dataModel.Description}");
+
+            StagesById.Remove(this);
+        }
+        
+        private string FormTypeToString(FormType formType)
+        {
+            switch (formType)
+            {
+                case FormType.Art:
+                    return REG_ART_FORM;
+                case FormType.Dancing:
+                    return REG_DANCE_FORM;
+                case FormType.Signing:
+                    return REG_SIGN_FORM;
+                default:
+                    return "Невідомо.";
+            }
         }
     }
 
@@ -136,6 +181,7 @@ namespace CndBot.Core.Actions
         Requested = 2,
         Name = 4,
         Age = 8,
-        Description = 16
+        Description = 16,
+        GetContact = 32
     }
 }
