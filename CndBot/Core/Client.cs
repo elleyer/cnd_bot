@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Extensions.Polling;
+using Telegram.Bot.Requests;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -18,25 +19,26 @@ namespace CndBot.Core
 {
     public class Client
     {
-        public static DataBaseProvider DataBaseProvider;
-        
         public const string SITE_URL = "http://tvorchist.in.ua";
         
-        private const string API_TOKEN = "1760241379:AAGsnMnvQz3gPTJuFRdK69DbUEndodk6ceY";
+        public const long MAIN_CHAT_ID = 424510699;
+        public const long SIGNING_CHAT_ID = 598097534;
+
+        private const string API_TOKEN = "1760241379:AAHPpdpPuG-5qSUx4VMkDR51SmJun-HoDE0";
+
+        private const long SIGN_CHAT_ID = -1;
         
+        public static DataBaseProvider DataBaseProvider;
+
         private static ITelegramBotClient _client;
 
-        private const long MAIN_CHAT_ID = 424510699;
-        private const long SIGN_CHAT_ID = -1;
-
         private List<BotCommand> _botCommands = new List<BotCommand>();
-        
-        private Dictionary<RegisterFormAction, FormDataModel> _stagesById
-            = new Dictionary<RegisterFormAction, FormDataModel>();
 
         public void Init()
         {
             DataBaseProvider = new DataBaseProvider(new DbContextOptions<DataBaseProvider>());
+
+            DataBaseProvider.SaveChanges();
 
             _client = new TelegramBotClient(API_TOKEN);
 
@@ -79,10 +81,8 @@ namespace CndBot.Core
         {
             if (update.Message is {From: { }} message)
             {
-                /*botClient.SendTextMessageAsync(update.Message.Chat, "123");
-                return;*/
                 var userId = message.From.Id;
-                
+
                 //Command handler
                 if (message.Text != null && message.Text.StartsWith("/"))
                 {
@@ -101,62 +101,59 @@ namespace CndBot.Core
                 }
 
                 //Message logic handler
-                if(message.Text != null && !message.Text.StartsWith("/"))
+                //todo: Refactor
+                switch (message.Text)
                 {
-                    //todo: Refactor
-                    switch (message.Text)
-                    {
-                        //Register a new form request
-                        case StartCommand.REGISTER_MSG:
-                            var pair = _stagesById.FirstOrDefault(x => 
-                                update.Message.From != null && x.Key.UserId == userId);
+                    //Register a new form request
+                    case StartCommand.REGISTER_MSG:
+                        var pair = RegisterFormAction.StagesById.FirstOrDefault(x => 
+                            update.Message.From != null && x.Key.UserId == userId);
 
-                            var form = pair.Key;
-                            if (form == null)
-                            {
-                                form = new RegisterFormAction(botClient, message.From.Id);
-                                _stagesById.Add(form, new FormDataModel());
+                        var form = pair.Key;
+                        if (form == null)
+                        {
+                            form = new RegisterFormAction(botClient, message.From.Id);
+                            RegisterFormAction.StagesById.Add(form, new FormDataModel());
 
-                                _stagesById.TryGetValue(form, out var dataModel);
+                            RegisterFormAction.StagesById.TryGetValue(form, out var dataModel);
                                     
-                               await form.InitForm(dataModel, update);
-                            }
-                            break;
+                            await form.InitForm(dataModel, update);
+                        }
+                        break;
                         
-                        //Contact us request
-                        case StartCommand.CONTACT_US_MSG:
-                            await botClient.SendTextMessageAsync(message.Chat, 
-                                "🕔 Графік роботи: 09:00 - 22:00 (пн-пт) \n \n" +
-                                "☎ Контактні номери: +380324931354 | +380324931352 \n \n" +
-                                "📨 Email-адреса: dzvinochky2008@ukr.net", 
-                                replyMarkup: new
-                                    InlineKeyboardMarkup(InlineKeyboardButton.WithUrl("Перейти на сайт 🌎", SITE_URL)),
-                                cancellationToken: cancellationToken);
-                            break;
+                    //Contact us request
+                    case StartCommand.CONTACT_US_MSG:
+                        await botClient.SendTextMessageAsync(message.Chat, 
+                            "🕔 Графік роботи: 09:00 - 22:00 (пн-пт) \n \n" +
+                            "☎ Контактні номери: +380324931354 | +380324931352 \n \n" +
+                            "📨 Email-адреса: dzvinochky2008@ukr.net", 
+                            replyMarkup: new
+                                InlineKeyboardMarkup(InlineKeyboardButton.WithUrl("Перейти на сайт 🌎", SITE_URL)),
+                            cancellationToken: cancellationToken);
+                        break;
                         
-                        //Check events request
-                        case StartCommand.CHECK_EVENTS_MSG:
-                            break;
+                    //Check events request
+                    case StartCommand.CHECK_EVENTS_MSG:
+                        break;
                         
-                        //Show on map request
-                        case StartCommand.SHOW_ON_MAP_MSG:
-                            await botClient.SendTextMessageAsync(message.Chat,
-                                "Ми знаходимося за адресою: проспект Шевченка, 15", 
-                                cancellationToken: cancellationToken);
+                    //Show on map request
+                    case StartCommand.SHOW_ON_MAP_MSG:
+                        await botClient.SendTextMessageAsync(message.Chat,
+                            "Ми знаходимося за адресою: проспект Шевченка, 15", 
+                            cancellationToken: cancellationToken);
                             
-                            await botClient.SendLocationAsync(message.Chat, 50.3945274d, 24.2401365d, 
-                                cancellationToken: cancellationToken);
-                            break;
-                    }
+                        await botClient.SendLocationAsync(message.Chat, 50.3945274d, 24.2401365d, 
+                            cancellationToken: cancellationToken);
+                        break;
+                }
 
-                    if (_stagesById.Any(x => message.From 
-                        != null && x.Key.UserId == userId))
-                    {
-                        var key = _stagesById.FirstOrDefault(x => 
-                            update.Message.From != null && x.Key.UserId == userId).Key;
+                if (RegisterFormAction.StagesById.Any(x => message.From 
+                    != null && x.Key.UserId == userId) && message.Text != StartCommand.REGISTER_MSG)
+                {
+                    var key = RegisterFormAction.StagesById.FirstOrDefault(x => 
+                        update.Message.From != null && x.Key.UserId == userId).Key;
 
-                        await key.ProcessNextStage(_stagesById[key], update);
-                    }
+                    await key.ProcessNextStage(RegisterFormAction.StagesById[key], update);
                 }
             }
         }
@@ -164,10 +161,8 @@ namespace CndBot.Core
         private static async Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception,
             CancellationToken cancellationToken)
         {
-            if (exception is ApiRequestException apiRequestException)
-            {
-                throw exception;
-            }
+            await botClient.SendTextMessageAsync(MAIN_CHAT_ID, exception.Message,
+                cancellationToken: cancellationToken);
         }
     }
 }
