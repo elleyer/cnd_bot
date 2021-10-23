@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -15,7 +16,7 @@ namespace CndBot.Core
         private const string WELCOME_MSG = "Ласкаво просимо до офіційного телеграм-боту Народного дому " +
                                            "міста Червоноград. Що Вас цікавить?";
         
-        public override async void ExecuteCommand(ITelegramBotClient botClient, Update update)
+        public override async Task ExecuteCommand(ITelegramBotClient botClient, Update update)
         {
             if (update.Message != null)
             {   
